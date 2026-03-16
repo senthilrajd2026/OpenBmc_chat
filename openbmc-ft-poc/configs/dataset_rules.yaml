@@ -1,0 +1,166 @@
+# =========================================================
+# Dataset generation rules and debug pattern taxonomy
+# =========================================================
+
+debug_patterns:
+  - id: service_state_debug
+    description: "Service failed to start, crashed, or is in wrong state"
+    keywords: ["service failed", "failed to start", "unit failed", "systemctl", "active state",
+                "inactive", "masked", "enabled", "disabled", "restart"]
+    weight: 0.12
+    answer_format: troubleshoot
+    required_commands: ["systemctl status", "journalctl -u"]
+
+  - id: dbus_lookup_debug
+    description: "D-Bus object not found, method call failed, interface missing"
+    keywords: ["dbus", "busctl", "ObjectMapper", "xyz.openbmc_project", "GetObject",
+                "introspect", "service not found", "object path"]
+    weight: 0.10
+    answer_format: troubleshoot
+    required_commands: ["busctl", "busctl tree", "busctl introspect"]
+
+  - id: sensor_debug
+    description: "Sensor missing, wrong value, not updating"
+    keywords: ["sensor", "phosphor-sensors", "entity-manager", "hwmon", "sysfs",
+                "fan", "temperature", "voltage", "power", "threshold"]
+    weight: 0.10
+    answer_format: troubleshoot
+    required_commands: ["busctl", "ipmitool sensor", "journalctl"]
+
+  - id: host_state_debug
+    description: "Host power/state issues, can't power on/off, stuck state"
+    keywords: ["host state", "power state", "power on", "power off", "xyz.openbmc_project.State",
+                "state manager", "chassis", "CurrentHostState", "CurrentPowerState"]
+    weight: 0.09
+    answer_format: troubleshoot
+    required_commands: ["busctl get-property", "systemctl status", "journalctl"]
+
+  - id: boot_progress_debug
+    description: "Boot stuck, POST failure, BIOS issues during boot"
+    keywords: ["boot progress", "POST", "boot stuck", "BIOS", "BootProgress",
+                "OSRunning", "SystemInitComplete", "PXE", "boot order"]
+    weight: 0.09
+    answer_format: troubleshoot
+    required_commands: ["busctl get-property", "journalctl", "ipmitool chassis"]
+
+  - id: event_logging_debug
+    description: "Log entries missing, wrong severity, phosphor-logging issues"
+    keywords: ["event log", "phosphor-logging", "logging", "SEL", "redfish log",
+                "xyz.openbmc_project.Logging", "message registry", "callout"]
+    weight: 0.07
+    answer_format: troubleshoot
+    required_commands: ["busctl", "journalctl", "ipmitool sel list"]
+
+  - id: ipmi_debug
+    description: "IPMI command failure, ipmitool errors, KCS/LAN issues"
+    keywords: ["ipmi", "ipmitool", "KCS", "RMCP+", "ipmid", "ipmid-provider",
+                "ipmi-oem", "IPMI over LAN", "bridging", "channel"]
+    weight: 0.08
+    answer_format: troubleshoot
+    required_commands: ["ipmitool", "systemctl status phosphor-ipmi-host", "journalctl -u"]
+
+  - id: redfish_debug
+    description: "Redfish endpoint not responding, wrong data, auth errors"
+    keywords: ["redfish", "bmcweb", "REST", "HTTP", "HTTPS", "TLS", "JWT",
+                "account service", "Systems", "Managers", "Chassis"]
+    weight: 0.07
+    answer_format: troubleshoot
+    required_commands: ["curl", "systemctl status bmcweb", "journalctl -u bmcweb"]
+
+  - id: build_debug
+    description: "BitBake / Yocto build errors, recipe failures, layer issues"
+    keywords: ["bitbake", "yocto", "recipe", "layer", "DISTRO", "MACHINE",
+                "bb error", "do_compile", "do_fetch", "SRC_URI", "meta-layer"]
+    weight: 0.06
+    answer_format: troubleshoot
+    required_commands: ["bitbake", "bitbake -e", "devtool"]
+
+  - id: api_mapping_debug
+    description: "IPMI-to-D-Bus mapping, Redfish-to-D-Bus path issues"
+    keywords: ["api mapping", "ipmi sensor mapping", "redfish mapping",
+                "sensor number", "entity id", "path mapping", "oem extension"]
+    weight: 0.05
+    answer_format: troubleshoot
+    required_commands: ["busctl", "ipmitool", "cat /etc/ipmi_whitelist"]
+
+  - id: insufficient_evidence
+    description: "Question lacks enough context; model must ask for specific missing evidence"
+    keywords: ["not enough info", "which platform", "which service", "which error",
+                "need logs", "need output", "need version"]
+    weight: 0.05
+    answer_format: troubleshoot
+    required_commands: []   # explicitly should request commands, not run them
+
+  - id: cross_subsystem_debug
+    description: "Issue spans multiple OpenBMC subsystems"
+    keywords: ["multiple services", "interaction", "dependency", "race condition",
+                "startup order", "socket activation", "dependency cycle"]
+    weight: 0.05
+    answer_format: troubleshoot
+    required_commands: ["systemctl list-dependencies", "journalctl", "busctl"]
+
+# Subsystem taxonomy used for metadata tagging
+subsystems:
+  - id: phosphor-ipmi
+    aliases: ["ipmid", "phosphor-ipmi-host", "ipmitool", "KCS", "RMCP+"]
+  - id: bmcweb
+    aliases: ["redfish", "REST", "bmcweb", "HTTP server", "TLS"]
+  - id: phosphor-dbus-interfaces
+    aliases: ["dbus interface", "xyz.openbmc_project", "D-Bus"]
+  - id: phosphor-sensors
+    aliases: ["hwmon", "sysfs", "fan sensor", "temp sensor", "volt sensor"]
+  - id: entity-manager
+    aliases: ["entity manager", "FRU", "inventory", "configuration"]
+  - id: phosphor-state-manager
+    aliases: ["host state", "chassis state", "power state", "BMC state"]
+  - id: phosphor-logging
+    aliases: ["event log", "SEL", "phosphor-logging", "callout", "message registry"]
+  - id: obmc-phosphor-systemd
+    aliases: ["systemd", "service unit", "socket activation", "target"]
+  - id: u-boot
+    aliases: ["u-boot", "bootloader", "SPL", "fit image"]
+  - id: yocto-bitbake
+    aliases: ["bitbake", "yocto", "recipe", "layer", "meta-openbmc"]
+  - id: phosphor-network
+    aliases: ["network", "NCSI", "eth0", "phosphor-network", "DHCP", "NTP"]
+  - id: openpower-occ
+    aliases: ["OCC", "OpenPOWER", "P9", "POWER9", "hostboot"]
+
+# Answer format enforcements
+answer_formats:
+  troubleshoot:
+    sections:
+      - Assessment
+      - Likely OpenBMC area
+      - Likely components/services
+      - Why this is likely
+      - Suggested checks/commands
+      - Missing evidence
+      - Confidence
+    confidence_values: [Low, Medium, High]
+
+  explain:
+    sections:
+      - Explanation
+      - Why it matters in practice
+      - Related OpenBMC area
+      - Common debug checks
+      - Confidence
+    confidence_values: [Low, Medium, High]
+
+# What to reject
+rejection_rules:
+  - id: too_short
+    description: "Output under minimum word threshold"
+  - id: missing_required_section
+    description: "Required section absent from structured answer"
+  - id: no_commands_when_expected
+    description: "Troubleshoot answer has no commands/checks"
+  - id: missing_confidence
+    description: "Confidence level not stated"
+  - id: near_duplicate
+    description: "Instruction too similar to existing example"
+  - id: generic_definition_only
+    description: "Answer is a textbook definition with no debug guidance"
+  - id: unsupported_claim
+    description: "Definitive root cause claimed without evidence"

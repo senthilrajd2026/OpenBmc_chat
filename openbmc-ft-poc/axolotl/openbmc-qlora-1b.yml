@@ -1,0 +1,113 @@
+# =========================================================
+# Axolotl QLoRA config for OpenBMC fine-tuning
+# Target hardware: NVIDIA RTX 2060 Super 8GB VRAM
+# Base model: ~1B parameter instruct model
+# =========================================================
+#
+# QLoRA vs LoRA for RTX 2060 Super 8GB:
+# - load_in_4bit: further reduces VRAM (~25% of fp32 baseline)
+# - 1B model at 4-bit uses ~0.5-1GB weights; leaves more for activations
+# - Recommended when LoRA still OOMs (e.g. longer sequences or larger batch)
+# - Slight quality loss vs 8-bit LoRA; acceptable for PoC
+# - Use this config if LoRA config causes OOM errors
+# =========================================================
+
+base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+# Alternative 1B options:
+#   microsoft/phi-1_5
+#   Qwen/Qwen2-0.5B-Instruct  (0.5B, even more headroom)
+#   EleutherAI/pythia-1b-deduped
+
+model_type: LlamaForCausalLM
+tokenizer_type: LlamaTokenizer
+
+# QLoRA: 4-bit NF4 quantization (requires bitsandbytes)
+load_in_8bit: false
+load_in_4bit: true
+strict: false
+
+# QLoRA-specific quantization config
+bnb_4bit_use_double_quant: true        # nested quantization for extra savings
+bnb_4bit_quant_type: nf4               # NormalFloat4: best quality for QLoRA
+bnb_4bit_compute_dtype: float16        # compute in fp16 during forward/backward
+
+# QLoRA adapter
+adapter: qlora
+lora_model_dir:
+
+lora_r: 32          # can afford higher r at 4-bit
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_linear: true
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - down_proj
+  - up_proj
+
+# Dataset
+datasets:
+  - path: data/train.jsonl
+    type: alpaca
+    data_files:
+      - data/train.jsonl
+
+val_set_size: 0
+eval_datasets:
+  - path: data/eval.jsonl
+    type: alpaca
+
+# Sequence settings
+# At 4-bit we have more headroom; still keeping 512 for safety
+sequence_len: 512
+sample_packing: false
+pad_to_sequence_len: false
+
+# Training output
+output_dir: ./outputs/openbmc-qlora-1b
+
+# Batch and gradient settings
+# With 1B + 4-bit QLoRA + seq_len 512:
+#   micro_batch_size 1 uses ~2-3GB active VRAM
+#   gradient_accumulation 16 = effective batch 16
+micro_batch_size: 1
+gradient_accumulation_steps: 16
+num_epochs: 3
+learning_rate: 2e-4
+lr_scheduler: cosine
+warmup_steps: 50
+
+# Optimizer - paged adamw is standard for QLoRA to keep optimizer states paged
+optimizer: paged_adamw_8bit
+weight_decay: 0.01
+max_grad_norm: 1.0
+
+# Memory optimization
+gradient_checkpointing: true    # CRITICAL for 8GB VRAM
+flash_attention: false          # RTX 2060 Turing has limited Flash Attention
+
+# Precision
+fp16: true      # RTX 2060 Super: use fp16
+bf16: false     # bf16 needs Ampere (RTX 3xxx+); NOT on RTX 2060
+
+# Logging and checkpointing
+logging_steps: 10
+save_steps: 100
+eval_steps: 100
+saves_per_epoch: 1
+save_total_limit: 2
+
+# Prompt format
+special_tokens:
+  bos_token: "<s>"
+  eos_token: "</s>"
+  unk_token: "<unk>"
+
+# Wandb (optional)
+# wandb_project: openbmc-ft-poc
+# wandb_run_id:
+
+tokenizer_padding_side: right

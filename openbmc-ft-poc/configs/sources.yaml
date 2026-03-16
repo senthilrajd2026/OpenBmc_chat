@@ -1,0 +1,110 @@
+# =========================================================
+# Data sources configuration for openbmc-ft-poc
+# =========================================================
+# Design note: This file is the single place to add new source adapters.
+# Each source has a type and adapter hint for future extensibility.
+# Future adapters: company_repo, internal_wiki, jira_issues, etc.
+# =========================================================
+
+repos:
+  - id: openbmc-main
+    type: github_repo
+    url: https://github.com/openbmc/openbmc
+    local_path: data/raw/repos/openbmc
+    branch: master
+    enabled: true
+    parse_docs: true
+    parse_services: true
+    parse_dbus: true
+    doc_extensions: [".md", ".rst", ".txt"]
+    doc_subdirs:
+      - "docs"
+      - "."   # top-level README
+    service_glob: "**/*.service"
+    interface_glob: "**/*.interface.yaml"
+
+  - id: openbmc-docs
+    type: github_repo
+    url: https://github.com/openbmc/docs
+    local_path: data/raw/repos/docs
+    branch: master
+    enabled: true
+    parse_docs: true
+    parse_services: false
+    parse_dbus: false
+    doc_extensions: [".md", ".rst", ".txt"]
+    doc_subdirs:
+      - "."
+      - "architecture"
+      - "development"
+      - "designs"
+
+  # Optional repos (set enabled: true to include)
+  - id: openbmc-test-automation
+    type: github_repo
+    url: https://github.com/openbmc/openbmc-test-automation
+    local_path: data/raw/repos/openbmc-test-automation
+    branch: master
+    enabled: false
+    parse_docs: true
+    parse_services: false
+    parse_dbus: false
+    doc_extensions: [".md", ".robot"]
+    doc_subdirs: ["."]
+
+  - id: openbmc-tools
+    type: github_repo
+    url: https://github.com/openbmc/openbmc-tools
+    local_path: data/raw/repos/openbmc-tools
+    branch: master
+    enabled: false
+    parse_docs: true
+    parse_services: false
+    parse_dbus: false
+    doc_extensions: [".md"]
+    doc_subdirs: ["."]
+
+# GitHub issues sources
+issues:
+  - id: openbmc-issues
+    type: github_issues
+    repo: openbmc/openbmc
+    enabled: true
+    max_pages: 5
+    per_page: 30
+    state: closed          # closed issues have resolutions
+    labels: []             # empty = all
+    skip_prs: true
+    min_body_length: 100   # skip trivial one-liners
+
+  - id: openbmc-docs-issues
+    type: github_issues
+    repo: openbmc/docs
+    enabled: true
+    max_pages: 3
+    per_page: 30
+    state: closed
+    labels: []
+    skip_prs: true
+    min_body_length: 50
+
+# Future adapter stubs (do NOT remove; shows expansion pattern)
+# - id: company-internal-repo
+#   type: company_repo            # future adapter
+#   url: https://internal.git/repo
+#   auth_env: INTERNAL_GIT_TOKEN
+#   enabled: false
+
+# - id: confluence-wiki
+#   type: confluence              # future adapter
+#   base_url: https://wiki.company.com
+#   space_key: OBMC
+#   auth_env: CONFLUENCE_TOKEN
+#   enabled: false
+
+# - id: jira-issues
+#   type: jira                    # future adapter
+#   base_url: https://jira.company.com
+#   project: OBMC
+#   auth_env: JIRA_TOKEN
+#   enabled: false

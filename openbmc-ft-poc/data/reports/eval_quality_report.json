@@ -1,0 +1,17 @@
+{
+  "n_examples": 6,
+  "avg_structure_compliance": 1.0,
+  "avg_command_usefulness": 1.0,
+  "avg_missing_evidence_behavior": 1.0,
+  "avg_confidence_stated": 1.0,
+  "avg_no_unsupported_claims": 1.0,
+  "avg_subsystem_relevance": 0.5,
+  "avg_length_quality": 1.0,
+  "avg_overall": 0.95,
+  "score_distribution": {
+    "excellent_0.8+": 6,
+    "good_0.6-0.8": 0,
+    "fair_0.4-0.6": 0,
+    "poor_<0.4": 0
+  }
+}

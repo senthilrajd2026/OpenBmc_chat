@@ -1,0 +1,78 @@
+# =========================================================
+# openbmc-ft-poc global settings
+# =========================================================
+
+project:
+  name: openbmc-ft-poc
+  version: "0.1.0"
+
+paths:
+  data_raw: data/raw
+  data_intermediate: data/intermediate
+  data_processed: data/processed
+  data_reports: data/reports
+  data_logs: data/logs
+  train_output: data/train.jsonl
+  eval_output: data/eval.jsonl
+
+# Dataset generation settings
+dataset:
+  seed: 42
+  train_split: 0.90
+  eval_split: 0.10
+  min_train_examples: 100
+  target_total_examples: 2000   # aim for this; less is fine for PoC
+
+  # Debug pattern distribution targets (percentages)
+  pattern_distribution:
+    debugging_and_triage: 0.45
+    subsystem_classification: 0.25
+    command_recommendation: 0.15
+    architecture_explanation: 0.10
+    insufficient_evidence: 0.05
+
+  # Validation thresholds
+  validation:
+    min_output_words: 60
+    min_instruction_words: 8
+    required_sections_troubleshoot:
+      - "Assessment"
+      - "Likely"
+      - "Suggested"
+      - "Missing evidence"
+      - "Confidence"
+    required_sections_explain:
+      - "Explanation"
+      - "Confidence"
+    max_duplicate_similarity: 0.92
+
+# LLM provider for generation
+llm:
+  provider: mock          # mock | openai | anthropic | local
+  temperature: 0.7
+  max_tokens: 1024
+  requests_per_minute: 20   # safe default for API rate limits
+
+# GitHub issue fetching
+github:
+  max_pages_per_repo: 5
+  issues_per_page: 30
+  min_comments: 0
+  skip_prs: true
+  label_filters: []         # empty means fetch all non-PR issues
+  repos:
+    - openbmc/openbmc
+    - openbmc/docs
+
+# Chunking settings
+chunking:
+  max_chunk_tokens: 400
+  overlap_tokens: 50
+  min_chunk_tokens: 30
+  split_by_heading: true
+
+# Logging
+logging:
+  level: INFO
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  file: data/logs/pipeline.log

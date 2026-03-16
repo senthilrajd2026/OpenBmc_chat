@@ -1,0 +1,112 @@
+# =========================================================
+# Axolotl LoRA config for OpenBMC fine-tuning
+# Target hardware: NVIDIA RTX 2060 Super 8GB VRAM
+# Base model: ~1B parameter instruct model
+# =========================================================
+#
+# Why these settings for RTX 2060 Super 8GB:
+# - load_in_8bit: reduces VRAM by ~50% vs fp32
+# - sequence_len 512: keeps KV cache small; 1B model at 512 fits in 8GB with 8-bit
+# - micro_batch_size 1: minimum footprint; gradient_accumulation compensates
+# - gradient_checkpointing: trades compute for memory (essential at 8GB)
+# - fp16 true / bf16 false: RTX 2060 lacks Tensor Cores optimized for bf16
+# - no flash_attention: RTX 2060 (Turing) has limited Flash Attention support
+# - LoRA r=16: good expressivity without large memory overhead
+# =========================================================
+
+base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+# Alternative 1B options:
+#   microsoft/phi-1_5
+#   Qwen/Qwen2-0.5B-Instruct  (0.5B, fits more easily)
+#   EleutherAI/pythia-1b-deduped
+
+model_type: LlamaForCausalLM
+tokenizer_type: LlamaTokenizer
+
+# Use 8-bit quantization to fit in 8GB VRAM
+load_in_8bit: true
+load_in_4bit: false
+strict: false
+
+# LoRA adapter settings
+adapter: lora
+lora_model_dir:
+
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target_linear: true
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - down_proj
+  - up_proj
+
+# Dataset
+datasets:
+  - path: data/train.jsonl
+    type: alpaca
+    data_files:
+      - data/train.jsonl
+
+val_set_size: 0    # we use separate eval.jsonl
+eval_datasets:
+  - path: data/eval.jsonl
+    type: alpaca
+
+# Sequence settings (512 keeps KV cache manageable at 8GB)
+sequence_len: 512
+sample_packing: false
+pad_to_sequence_len: false
+
+# Training
+output_dir: ./outputs/openbmc-lora-1b
+
+# Batch and gradient settings
+# With 1B + 8-bit + LoRA + seq_len 512:
+#   micro_batch_size 1 uses ~3-4GB active VRAM
+#   gradient_accumulation 16 = effective batch size 16
+micro_batch_size: 1
+gradient_accumulation_steps: 16
+num_epochs: 3
+learning_rate: 2e-4
+lr_scheduler: cosine
+warmup_steps: 50
+
+# Optimizer
+optimizer: adamw_torch_fused
+weight_decay: 0.01
+max_grad_norm: 1.0
+
+# Memory optimization
+gradient_checkpointing: true   # CRITICAL for 8GB VRAM
+# Do NOT set flash_attention: RTX 2060 (Turing/sm75) has limited support
+flash_attention: false
+
+# Precision
+fp16: true     # RTX 2060 Super supports fp16 well
+bf16: false    # bf16 needs Ampere (RTX 3xxx+); NOT supported on RTX 2060
+
+# Logging and checkpointing
+logging_steps: 10
+save_steps: 100
+eval_steps: 100
+saves_per_epoch: 1
+save_total_limit: 2
+
+# Prompt format (Alpaca-style)
+# Matches our dataset format: instruction + input + output
+special_tokens:
+  bos_token: "<s>"
+  eos_token: "</s>"
+  unk_token: "<unk>"
+
+# Wandb (optional)
+# wandb_project: openbmc-ft-poc
+# wandb_run_id:
+
+# Tokenizer padding
+tokenizer_padding_side: right

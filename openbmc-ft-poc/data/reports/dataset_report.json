@@ -1,0 +1,21 @@
+{
+  "total_valid": 7,
+  "total_train": 6,
+  "total_eval": 1,
+  "total_rejected": 0,
+  "rejection_rate_pct": 0.0,
+  "by_pattern": {
+    "insufficient_evidence": 7
+  },
+  "by_subsystem": {
+    "": 7
+  },
+  "by_source_type": {
+    "synthetic": 7
+  },
+  "avg_instruction_words": 16.3,
+  "avg_output_words": 152.0,
+  "debugging_pct": 100.0,
+  "explanation_pct": 0.0,
+  "rejection_reasons": {}
+}

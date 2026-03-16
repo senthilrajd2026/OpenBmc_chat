@@ -57,27 +57,63 @@ Training target: **NVIDIA RTX 2060 Super 8GB VRAM**
 
 ## Quick Start
 
+### Step 0 — CUDA and PyTorch setup (RTX 2060 Super)
+
+The RTX 2060 Super uses the Turing architecture (compute capability 7.5).
+It supports CUDA 11.x and 12.x but does **not** support bf16 (that needs Ampere / RTX 3xxx+).
+
 ```bash
-# 1. Bootstrap the environment
+# Check your CUDA driver version
+nvidia-smi
+
+# Install CUDA toolkit if not already installed (Ubuntu 24.04)
+# For CUDA 12.1 (matches most recent driver):
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt-get update
+sudo apt-get -y install cuda-toolkit-12-4
+
+# Install PyTorch with CUDA 12.1 support
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+# Verify GPU is visible to PyTorch
+python3 -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+# Expected: True  NVIDIA GeForce RTX 2060 SUPER
+
+# Install Axolotl and training stack
+pip install axolotl transformers peft bitsandbytes accelerate
+
+# Verify bitsandbytes sees the GPU (needed for 8-bit/4-bit)
+python3 -c "import bitsandbytes; print('bitsandbytes OK')"
+```
+
+> **WSL2 note**: If running on Windows with WSL2, CUDA works via the Windows NVIDIA driver — do NOT install a separate Linux CUDA driver inside WSL. Only install the CUDA toolkit (not the driver). The PyTorch install command above is the same.
+
+### Step 1-6 — Full pipeline
+
+```bash
+# 1. Bootstrap the environment (installs Python deps, creates .env, data dirs)
 bash scripts/bootstrap_env.sh
 
 # 2. Edit .env and set your GitHub token
 cp .env.example .env
-# vim .env  → set GITHUB_TOKEN
+nano .env   # set GITHUB_TOKEN=ghp_your_token_here
 
-# 3. Check environment capabilities
+# 3. Check environment capabilities (confirms GPU visible)
 python3 scripts/check_env.py
 
-# 4. Run the full data pipeline
+# 4. Run the full data pipeline (no GPU needed for this step)
 make pipeline
 
-# 5. (With GPU) Fine-tune
-make train-lora     # LoRA (recommended first)
-# or
-make train-qlora    # QLoRA (lower VRAM fallback)
+# 5. (With GPU) Fine-tune — try LoRA first
+make train-lora     # uses ~5-6GB VRAM on RTX 2060 Super
+# If Out-of-Memory error occurs, fall back to QLoRA:
+make train-qlora    # uses ~3-4GB VRAM
 
-# 6. Run inference
+# 6. Run inference on the fine-tuned model
 bash scripts/infer.sh --interactive
+# or with a specific question:
+bash scripts/infer.sh --prompt "The phosphor-ipmi-host service is stuck in activating state. Where do I start?"
 ```
 
 ---
@@ -421,3 +457,80 @@ pytest tests/ -v --cov=src/openbmc_ft_poc --cov-report=term-missing
 - OpenBMC has distinct subsystems (D-Bus, IPMI, sensors, state manager, bmcweb)
 - Generic LLMs mix up subsystem-specific commands and paths
 - Targeted training produces much more useful and accurate debug guidance
+
+---
+
+## Troubleshooting Common RTX 2060 Super Issues
+
+### Out of Memory during training
+```bash
+# Switch from LoRA to QLoRA
+make train-qlora
+
+# Or reduce gradient_accumulation_steps in axolotl/openbmc-qlora-1b.yml
+# Change: gradient_accumulation_steps: 16
+# To:     gradient_accumulation_steps: 8
+```
+
+### CUDA not detected by PyTorch
+```bash
+# Confirm driver is loaded
+nvidia-smi
+
+# Confirm PyTorch CUDA build matches your driver
+python3 -c "import torch; print(torch.version.cuda)"
+# Must match your CUDA driver version (or be ≤ driver version)
+
+# If mismatch, reinstall torch for correct CUDA version
+pip install torch --index-url https://download.pytorch.org/whl/cu118   # for CUDA 11.8
+```
+
+### `bitsandbytes` CUDA error
+```bash
+# RTX 2060 Super is sm_75 (Turing). Ensure bitsandbytes >= 0.41
+pip install bitsandbytes --upgrade
+
+# Test:
+python3 -c "import bitsandbytes as bnb; print(bnb.__version__)"
+```
+
+### WSL2: GPU not visible
+```bash
+# Check GPU from WSL2
+nvidia-smi    # should show your GPU
+
+# If not visible, ensure:
+# 1. Windows NVIDIA driver is 515+ (supports WSL2 CUDA)
+# 2. Do NOT install a Linux NVIDIA driver inside WSL2
+# 3. Add to /etc/wsl.conf inside WSL2:
+#    [boot]
+#    systemd=true
+
+# Recommended .wslconfig on Windows host (in C:\Users\YourName\.wslconfig):
+# [wsl2]
+# memory=12GB
+# processors=8
+# gpuSupport=true
+```
+
+### Dataset too small after generation
+```bash
+# Use a real LLM provider for much richer examples
+# 1. Get OpenAI API key: https://platform.openai.com
+# 2. Set in .env: OPENAI_API_KEY=sk-...
+# 3. Regenerate:
+python3 scripts/generate_sft_examples.py --provider openai --limit 500
+
+# Or use local Ollama (free, private):
+# Install Ollama: https://ollama.ai
+ollama pull mistral
+python3 scripts/generate_sft_examples.py --provider local --limit 500
+```
+
+### Training is too slow
+The RTX 2060 Super training speed for a 1B model at seq_len 512:
+- LoRA (8-bit): ~10-20 steps/minute
+- QLoRA (4-bit): ~15-25 steps/minute
+- Expected total: 1-3 hours for 1000 examples × 3 epochs
+
+This is normal. Reduce `num_epochs: 1` in the Axolotl config for a faster first test.

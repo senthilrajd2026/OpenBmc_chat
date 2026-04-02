@@ -1,0 +1,29 @@
+board:
+  name: Sample Embedded Board
+  vendor: DemoVendor
+  soc: DemoSoC
+  os: ubuntu
+  revision: A1
+
+interfaces:
+  i2c:
+    - bus: 1
+      devices:
+        - name: eeprom
+          address: "0x50"
+        - name: temp_sensor
+          address: "0x48"
+
+  gpio:
+    - line: 23
+      name: reset_modem
+      direction: out
+
+  uart:
+    - port: /dev/ttyUSB0
+      baudrate: 115200
+      loopback_required: false
+
+  ethernet:
+    - name: eth0
+      phy_expected: true

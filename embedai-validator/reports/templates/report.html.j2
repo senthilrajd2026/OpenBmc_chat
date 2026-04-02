@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmbedAI Validator — {{ run.board_name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+    header { background: #16213e; color: #eaeaea; padding: 1.5rem 2rem; }
+    header h1 { font-size: 1.6rem; font-weight: 700; }
+    header p  { font-size: 0.9rem; opacity: 0.7; margin-top: .3rem; }
+    .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+
+    /* Summary cards */
+    .cards { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .card { flex: 1 1 140px; background: #fff; border-radius: 10px;
+            padding: 1rem 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,.08); text-align: center; }
+    .card .num  { font-size: 2rem; font-weight: 800; }
+    .card .lbl  { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .06em; color: #666; }
+    .card.pass  .num { color: #16a34a; }
+    .card.fail  .num { color: #dc2626; }
+    .card.skip  .num { color: #ca8a04; }
+    .card.error .num { color: #9333ea; }
+    .card.total .num { color: #2563eb; }
+
+    /* Overall badge */
+    .badge { display: inline-block; padding: .3rem .9rem; border-radius: 999px;
+             font-weight: 700; font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; }
+    .badge-PASS  { background: #dcfce7; color: #15803d; }
+    .badge-FAIL  { background: #fee2e2; color: #b91c1c; }
+    .badge-SKIP  { background: #fef9c3; color: #92400e; }
+    .badge-ERROR { background: #f3e8ff; color: #7e22ce; }
+
+    /* Sections */
+    section { background: #fff; border-radius: 10px; padding: 1.5rem;
+              box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 1.5rem; }
+    section h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #16213e; }
+
+    /* Environment table */
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th, td { text-align: left; padding: .45rem .7rem; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f8fafc; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Results list */
+    .result-item { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: .8rem;
+                   overflow: hidden; }
+    .result-header { display: flex; align-items: center; gap: .7rem;
+                     padding: .65rem 1rem; background: #f8fafc; cursor: pointer;
+                     user-select: none; }
+    .result-header:hover { background: #f1f5f9; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-PASS  { background: #16a34a; }
+    .dot-FAIL  { background: #dc2626; }
+    .dot-SKIP  { background: #ca8a04; }
+    .dot-ERROR { background: #9333ea; }
+    .result-id   { font-weight: 600; font-size: .88rem; flex: 1; }
+    .result-msg  { font-size: .82rem; color: #555; flex: 2; }
+    .result-dur  { font-size: .78rem; color: #999; white-space: nowrap; }
+    .result-body { padding: 1rem; display: none; border-top: 1px solid #e5e7eb; }
+    .result-body.open { display: block; }
+
+    /* Evidence */
+    pre { background: #0f172a; color: #e2e8f0; border-radius: 6px;
+          padding: .8rem 1rem; font-size: .78rem; overflow-x: auto;
+          white-space: pre-wrap; word-break: break-word; margin: .4rem 0 .8rem; }
+
+    /* Suggestions */
+    .suggestions { background: #fffbeb; border-left: 4px solid #f59e0b;
+                   padding: .7rem 1rem; border-radius: 0 6px 6px 0; margin-top: .5rem; }
+    .suggestions h4 { font-size: .82rem; font-weight: 700; color: #92400e; margin-bottom: .4rem; }
+    .suggestions ul { padding-left: 1.1rem; font-size: .82rem; color: #78350f; }
+    .suggestions li { margin-bottom: .2rem; }
+
+    /* Recommendations */
+    .rec-list { list-style: none; padding: 0; }
+    .rec-list li { padding: .5rem .7rem; border-radius: 6px; margin-bottom: .4rem;
+                   background: #f0f9ff; border-left: 3px solid #0ea5e9;
+                   font-size: .88rem; color: #0c4a6e; }
+
+    footer { text-align: center; padding: 1.5rem; font-size: .78rem; color: #999; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>EmbedAI Validator Report</h1>
+  <p>Board: <strong>{{ run.board_name }}</strong> &nbsp;|&nbsp;
+     Run ID: {{ run.run_id }} &nbsp;|&nbsp;
+     {{ run.started_at.strftime('%Y-%m-%d %H:%M:%S') }}
+     {% if run.mock_mode %}&nbsp;|&nbsp;<em>[MOCK MODE]</em>{% endif %}
+  </p>
+</header>
+
+<div class="container">
+
+  <!-- Summary cards -->
+  <div class="cards">
+    <div class="card total">
+      <div class="num">{{ run.summary.total }}</div>
+      <div class="lbl">Total</div>
+    </div>
+    <div class="card pass">
+      <div class="num">{{ run.summary.passed }}</div>
+      <div class="lbl">Passed</div>
+    </div>
+    <div class="card fail">
+      <div class="num">{{ run.summary.failed }}</div>
+      <div class="lbl">Failed</div>
+    </div>
+    <div class="card skip">
+      <div class="num">{{ run.summary.skipped }}</div>
+      <div class="lbl">Skipped</div>
+    </div>
+    <div class="card error">
+      <div class="num">{{ run.summary.errors }}</div>
+      <div class="lbl">Errors</div>
+    </div>
+    <div class="card" style="align-self:center">
+      <span class="badge badge-{{ run.summary.overall_status.value }}">
+        {{ run.summary.overall_status.value }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Environment table -->
+  <section>
+    <h2>Environment</h2>
+    <table>
+      <thead><tr><th>Key</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for k, v in run.environment.items() %}
+        <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Test results -->
+  <section>
+    <h2>Test Results</h2>
+    {% for result in run.results %}
+    <div class="result-item">
+      <div class="result-header" onclick="toggle(this)">
+        <span class="status-dot dot-{{ result.status.value }}"></span>
+        <span class="result-id">{{ result.test_id }}</span>
+        <span class="result-msg">{{ result.message }}</span>
+        <span class="result-dur">{{ '%.1f' % result.duration_ms }} ms</span>
+        <span class="badge badge-{{ result.status.value }}" style="font-size:.72rem;padding:.15rem .5rem">
+          {{ result.status.value }}
+        </span>
+      </div>
+      <div class="result-body">
+        {% if result.evidence %}
+          <strong style="font-size:.82rem">Evidence</strong>
+          {% for ev in result.evidence %}
+            <div style="font-size:.76rem;color:#666;margin:.2rem 0">source: {{ ev.source }}</div>
+            <pre>{{ ev.data }}</pre>
+          {% endfor %}
+        {% endif %}
+        {% if result.suggestions %}
+          <div class="suggestions">
+            <h4>Suggestions</h4>
+            <ul>{% for s in result.suggestions %}<li>{{ s }}</li>{% endfor %}</ul>
+          </div>
+        {% endif %}
+        {% if result.error_code %}
+          <p style="font-size:.78rem;color:#b91c1c;margin-top:.5rem">Error code: {{ result.error_code }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  <!-- Recommendations -->
+  {% if recommendations %}
+  <section>
+    <h2>Recommendations</h2>
+    <ul class="rec-list">
+      {% for rec in recommendations %}<li>{{ rec }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+</div><!-- /container -->
+
+<footer>Generated by EmbedAI Validator &nbsp;•&nbsp; {{ run.finished_at.strftime('%Y-%m-%d %H:%M:%S') }}</footer>
+
+<script>
+  function toggle(header) {
+    const body = header.nextElementSibling;
+    body.classList.toggle('open');
+  }
+  // Auto-expand failed/error items
+  document.querySelectorAll('.result-header').forEach(h => {
+    if (h.querySelector('.badge-FAIL, .badge-ERROR')) {
+      h.nextElementSibling.classList.add('open');
+    }
+  });
+</script>
+</body>
+</html>
